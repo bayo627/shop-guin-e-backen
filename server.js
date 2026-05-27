@@ -22,7 +22,7 @@ const { protect, authorize } = require('./middleware/authMiddleware');
 const app = express();
 
 /* ── Middlewares globaux ─────────────────────────────────────── */
-app.use(cors({ origin: ['http://localhost:5173', 'http://127.0.0.1:5173', 'https://shop-guin-e-frontend.vercel.app'], credentials: true }));
+app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
