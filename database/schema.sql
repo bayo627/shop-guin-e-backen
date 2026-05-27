@@ -284,10 +284,10 @@ INSERT INTO `categories` (`name`, `slug`, `description`, `image_url`, `sort_orde
 
 -- Utilisateurs de démo (password = "password123" hashé en bcrypt)
 INSERT INTO `users` (`name`, `email`, `password`, `role`, `phone`, `address`, `city`, `is_active`, `email_verified`) VALUES
-('Admin Shop Guinée', 'admin@shopguinee.gn',   '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LPVxbcKdROK', 'admin',  '+224 620 00 00 01', 'Kaloum, BP 1234',    'Conakry', 1, 1),
-('Mamadou Sylla',     'vendeur@shopguinee.gn', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LPVxbcKdROK', 'seller', '+224 622 11 22 33', 'Madina, Rue KA-006', 'Conakry', 1, 1),
-('Fatoumata Diallo',  'acheteur@shopguinee.gn','$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LPVxbcKdROK', 'buyer',  '+224 628 44 55 66', 'Kipé, Cité Ministère','Conakry',1, 1),
-('Alpha Camara',      'alpha@shopguinee.gn',   '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LPVxbcKdROK', 'seller', '+224 664 77 88 99', 'Ratoma, Kobaya',     'Conakry', 1, 1);
+('Admin Shop Guinée', 'admin@shopguinee.gn',   '$2a$10$LOEqFJa1nYTBzwUN5sqgWutkDTLZHZZK9nF0naCscceB8excyXdi6', 'admin',  '+224 620 00 00 01', 'Kaloum, BP 1234',    'Conakry', 1, 1),
+('Mamadou Sylla',     'vendeur@shopguinee.gn', '$2a$10$LOEqFJa1nYTBzwUN5sqgWutkDTLZHZZK9nF0naCscceB8excyXdi6', 'seller', '+224 622 11 22 33', 'Madina, Rue KA-006', 'Conakry', 1, 1),
+('Fatoumata Diallo',  'acheteur@shopguinee.gn','$2a$10$LOEqFJa1nYTBzwUN5sqgWutkDTLZHZZK9nF0naCscceB8excyXdi6', 'buyer',  '+224 628 44 55 66', 'Kipé, Cité Ministère','Conakry', 1, 1),
+('Alpha Camara',      'alpha@shopguinee.gn',   '$2a$10$LOEqFJa1nYTBzwUN5sqgWutkDTLZHZZK9nF0naCscceB8excyXdi6', 'seller', '+224 664 77 88 99', 'Ratoma, Kobaya',     'Conakry', 1, 1);
 
 -- Boutiques vendeurs
 INSERT INTO `vendors` (`user_id`, `store_name`, `store_slug`, `store_description`, `store_city`, `store_phone`, `is_verified`, `commission_rate`) VALUES

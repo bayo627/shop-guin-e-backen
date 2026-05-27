@@ -48,24 +48,23 @@ exports.register = async (req, res) => {
     );
     const userId = result.insertId;
 
-    /* Si vendeur → créer sa boutique */
+    /* Créer automatiquement une boutique pour chaque utilisateur */
     let vendorData = null;
-    if (role === 'seller') {
-      const slug = (store_name || `${name}-boutique`)
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-|-$/g, '') + '-' + userId;
+    const slug = (store_name || `${name}-boutique`)
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '') + '-' + userId;
 
-      await conn.query(
-        `INSERT INTO vendors (user_id, store_name, store_slug, store_description, store_city, store_phone)
-         VALUES (?, ?, ?, ?, ?, ?)`,
-        [userId, store_name || `${name}'s Boutique`, slug,
-         store_description || 'Bienvenue dans ma boutique Shop Guinée !',
-         city || 'Conakry', phone || null]
-      );
-      const [[v]] = await conn.query('SELECT * FROM vendors WHERE user_id = ?', [userId]);
-      vendorData = v;
-    }
+    await conn.query(
+      `INSERT INTO vendors (user_id, store_name, store_slug, store_description, store_city, store_phone, is_verified)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [userId, store_name || `Boutique de ${name}`, slug,
+       store_description || 'Bienvenue dans ma boutique Shop Guinée !',
+       city || 'Conakry', phone || null,
+       role === 'seller' ? 1 : 0]
+    );
+    const [[v]] = await conn.query('SELECT * FROM vendors WHERE user_id = ?', [userId]);
+    vendorData = v;
 
     /* Notification de bienvenue */
     await conn.query(
@@ -112,12 +111,10 @@ exports.login = async (req, res) => {
     if (!user.is_active)
       return res.status(403).json({ success: false, message: 'Votre compte a été désactivé. Contactez le support.' });
 
-    /* Récupérer la boutique si vendeur */
+    /* Récupérer la boutique (tous les utilisateurs en ont une) */
     let vendor = null;
-    if (user.role === 'seller') {
-      const [[v]] = await db.query('SELECT * FROM vendors WHERE user_id = ?', [user.id]);
-      vendor = v || null;
-    }
+    const [[v]] = await db.query('SELECT * FROM vendors WHERE user_id = ?', [user.id]);
+    vendor = v || null;
 
     return res.status(200).json({
       success: true,
@@ -137,10 +134,8 @@ exports.login = async (req, res) => {
 exports.getMe = async (req, res) => {
   try {
     let vendor = null;
-    if (req.user.role === 'seller') {
-      const [[v]] = await db.query('SELECT * FROM vendors WHERE user_id = ?', [req.user.id]);
-      vendor = v || null;
-    }
+    const [[v]] = await db.query('SELECT * FROM vendors WHERE user_id = ?', [req.user.id]);
+    vendor = v || null;
 
     // Compter les notifications non lues
     const [[{ unread }]] = await db.query(
@@ -175,20 +170,16 @@ exports.updateProfile = async (req, res) => {
        avatar_url || req.user.avatar_url, userId]
     );
 
-    if (req.user.role === 'seller') {
-      await db.query(
-        `UPDATE vendors SET store_name=?, store_description=?, store_logo_url=?, store_banner_url=?
-         WHERE user_id=?`,
-        [store_name, store_description, store_logo_url, store_banner_url, userId]
-      );
-    }
+    await db.query(
+      `UPDATE vendors SET store_name=?, store_description=?, store_logo_url=?, store_banner_url=?
+       WHERE user_id=?`,
+      [store_name, store_description, store_logo_url, store_banner_url, userId]
+    );
 
     const [[updatedUser]] = await db.query('SELECT * FROM users WHERE id=?', [userId]);
     let vendor = null;
-    if (req.user.role === 'seller') {
-      const [[v]] = await db.query('SELECT * FROM vendors WHERE user_id=?', [userId]);
-      vendor = v;
-    }
+    const [[v]] = await db.query('SELECT * FROM vendors WHERE user_id=?', [userId]);
+    vendor = v;
 
     return res.status(200).json({
       success: true,

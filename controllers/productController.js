@@ -255,3 +255,45 @@ exports.getMyProducts = async (req, res) => {
     return res.status(500).json({ success: false, message: err.message });
   }
 };
+
+/* ────────────────────────────────────────────────────────────
+   GET /api/vendors/public  (Public)
+   ──────────────────────────────────────────────────────────── */
+exports.getPublicVendors = async (req, res) => {
+  try {
+    const [vendors] = await db.query(
+      `SELECT v.id, v.store_name, v.store_slug, v.store_description, v.store_logo_url, v.rating,
+              u.name AS seller_name, u.city,
+              (SELECT COUNT(*) FROM products WHERE vendor_id = v.id AND is_active = 1) AS product_count
+       FROM vendors v
+       JOIN users u ON v.user_id = u.id
+       WHERE v.is_verified = 1
+       ORDER BY v.rating DESC, product_count DESC`
+    );
+    return res.json({ success: true, vendors });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+/* ────────────────────────────────────────────────────────────
+   GET /api/vendors/:id/categories  (Public)
+   Renvoie uniquement les catégories dans lesquelles ce vendeur a des produits
+   ──────────────────────────────────────────────────────────── */
+exports.getVendorCategories = async (req, res) => {
+  try {
+    const [categories] = await db.query(
+      `SELECT c.id, c.name, c.slug, c.icon, c.is_active,
+              COUNT(p.id) AS product_count
+       FROM categories c
+       INNER JOIN products p ON p.category_id = c.id AND p.is_active = 1
+       WHERE p.vendor_id = ? AND c.is_active = 1
+       GROUP BY c.id
+       ORDER BY c.sort_order ASC`,
+      [req.params.id]
+    );
+    return res.json({ success: true, categories });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};

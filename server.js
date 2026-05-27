@@ -1,7 +1,9 @@
 require('dotenv').config();
 const express = require('express');
 const cors    = require('cors');
+const morgan  = require('morgan');
 
+const path = require('path');
 const db = require('./config/db'); // déclenche la connexion au boot
 
 // ── Contrôleurs ──────────────────────────────────────────────
@@ -12,25 +14,26 @@ const payment = require('./controllers/paymentController');
 const message = require('./controllers/messageController');
 const review  = require('./controllers/reviewController');
 const admin   = require('./controllers/adminController');
-
+const invoice = require('./controllers/invoiceController');
+const uploadRoutes = require('./routes/uploadRoutes');
 // ── Middleware ────────────────────────────────────────────────
 const { protect, authorize } = require('./middleware/authMiddleware');
 
 const app = express();
 
 /* ── Middlewares globaux ─────────────────────────────────────── */
-app.use(cors({ origin: 'http://localhost:5173', credentials: true }));
+app.use(cors({ origin: ['http://localhost:5173', 'http://127.0.0.1:5173'], credentials: true }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Logger minimaliste
-app.use((req, _res, next) => {
-  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
-  next();
-});
+// Logger avec Morgan
+app.use(morgan('dev'));
 
 /* ── Route de santé ─────────────────────────────────────────── */
 app.get('/api', (_req, res) => res.json({ success: true, message: '🟢 API Shop Guinée opérationnelle !' }));
+
+/* ── Fichiers Statiques ─────────────────────────────────────── */
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 /* ══════════════════════════════════════════════════════════════
    AUTH
@@ -47,27 +50,40 @@ app.get ('/api/auth/notifications',    protect, auth.getNotifications);
    ══════════════════════════════════════════════════════════════ */
 app.get ('/api/categories',              product.getCategories);
 app.get ('/api/products',                product.getAllProducts);
-app.get ('/api/products/my-products',    protect, authorize('seller','admin'), product.getMyProducts);
+app.get ('/api/products/my-products',    protect, product.getMyProducts);
 app.get ('/api/products/:id',            product.getProductById);
-app.post('/api/products',                protect, authorize('seller','admin'), product.createProduct);
-app.put ('/api/products/:id',            protect, authorize('seller','admin'), product.updateProduct);
-app.delete('/api/products/:id',          protect, authorize('seller','admin'), product.deleteProduct);
+app.post('/api/products',                protect, product.createProduct);
+app.put ('/api/products/:id',            protect, product.updateProduct);
+app.delete('/api/products/:id',          protect, product.deleteProduct);
+
+/* ══════════════════════════════════════════════════════════════
+   VENDEURS (Public)
+   ══════════════════════════════════════════════════════════════ */
+app.get ('/api/vendors/public',          product.getPublicVendors);
+app.get ('/api/vendors/:id/categories',  product.getVendorCategories);
+
+/* ══════════════════════════════════════════════════════════════
+   UPLOADS
+   ══════════════════════════════════════════════════════════════ */
+app.use('/api/upload', protect, uploadRoutes);
 
 /* ══════════════════════════════════════════════════════════════
    COMMANDES
    ══════════════════════════════════════════════════════════════ */
-app.post('/api/orders',                  protect, authorize('buyer'),          order.createOrder);
-app.get ('/api/orders/my-orders',        protect, authorize('buyer'),          order.getMyOrders);
-app.get ('/api/orders/seller-orders',    protect, authorize('seller'),         order.getSellerOrders);
-app.get ('/api/orders/:id',              protect,                              order.getOrderById);
-app.put ('/api/orders/:id/status',       protect, authorize('seller','admin'), order.updateOrderStatus);
+app.post('/api/orders',                  protect, order.createOrder);
+app.get ('/api/orders/my-orders',        protect, order.getMyOrders);
+app.get ('/api/orders/seller-orders',    protect, order.getSellerOrders);
+app.get ('/api/orders/seller-earnings',  protect, order.getSellerEarnings);
+app.get ('/api/orders/:id',              protect, order.getOrderById);
+app.get ('/api/orders/:id/invoice',      protect, invoice.generateInvoice);
+app.put ('/api/orders/:id/status',       protect, order.updateOrderStatus);
 
 /* ══════════════════════════════════════════════════════════════
    PAIEMENTS
    ══════════════════════════════════════════════════════════════ */
-app.post('/api/payments',                protect, authorize('buyer'),  payment.submitPayment);
-app.put ('/api/payments/:id/verify',     protect, authorize('admin'),  payment.verifyPayment);
-app.get ('/api/payments',                protect, authorize('admin'),  payment.getAllPayments);
+app.post('/api/payments',                protect, payment.submitPayment);
+app.put ('/api/payments/:id/verify',     protect, authorize('admin'), payment.verifyPayment);
+app.get ('/api/payments',                protect, authorize('admin'), payment.getAllPayments);
 app.get ('/api/payments/instructions/:method',                         payment.getPaymentInstructions);
 
 /* ══════════════════════════════════════════════════════════════
@@ -80,8 +96,8 @@ app.get ('/api/messages/conversation/:userId', protect, message.getConversation)
 /* ══════════════════════════════════════════════════════════════
    AVIS
    ══════════════════════════════════════════════════════════════ */
-app.post('/api/reviews',                     protect, authorize('buyer'), review.createReview);
-app.get ('/api/reviews/product/:productId',                              review.getProductReviews);
+app.post('/api/reviews',                     protect, review.createReview);
+app.get ('/api/reviews/product/:productId',           review.getProductReviews);
 
 /* ══════════════════════════════════════════════════════════════
    ADMIN

@@ -22,7 +22,7 @@ exports.protect = async (req, res, next) => {
 
     // Récupérer l'utilisateur depuis la base de données
     const [users] = await db.query(
-      'SELECT id, name, email, role, phone, address, store_name, store_description FROM users WHERE id = ?',
+      'SELECT * FROM users WHERE id = ?',
       [decoded.id]
     );
 

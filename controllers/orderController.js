@@ -92,18 +92,88 @@ exports.createOrder = async (req, res) => {
 };
 
 /* ────────────────────────────────────────────────────────────
+   GET /api/orders/seller-earnings   — Revenus du vendeur
+   ──────────────────────────────────────────────────────────── */
+exports.getSellerEarnings = async (req, res) => {
+  try {
+    const [[vendor]] = await db.query('SELECT id, commission_rate FROM vendors WHERE user_id = ?', [req.user.id]);
+    if (!vendor) return res.json({ success: true, earnings: [], summary: { total: 0, pending: 0, completed: 0, commission_rate: 5 } });
+
+    const commissionRate = parseFloat(vendor.commission_rate) || 5;
+
+    // Récupérer les revenus par commande
+    const [earnings] = await db.query(
+      `SELECT o.id AS order_id, o.order_number, o.created_at, o.status, o.payment_status, o.payment_method,
+              SUM(oi.total_price) AS vendor_total,
+              u.name AS buyer_name
+       FROM order_items oi
+       INNER JOIN orders o ON oi.order_id = o.id
+       LEFT JOIN users u ON o.buyer_id = u.id
+       WHERE oi.vendor_id = ?
+       GROUP BY o.id
+       ORDER BY o.created_at DESC`,
+      [vendor.id]
+    );
+
+    // Calculs des totaux
+    let totalEarned = 0;
+    let totalPending = 0;
+    let totalCompleted = 0;
+
+    for (const e of earnings) {
+      const vendorAmount = parseFloat(e.vendor_total);
+      const commission = vendorAmount * (commissionRate / 100);
+      e.commission = commission;
+      e.net_amount = vendorAmount - commission;
+
+      if (e.payment_status === 'completed') {
+        totalCompleted += e.net_amount;
+      } else {
+        totalPending += e.net_amount;
+      }
+      totalEarned += e.net_amount;
+    }
+
+    return res.json({
+      success: true,
+      earnings,
+      summary: {
+        total: totalEarned,
+        pending: totalPending,
+        completed: totalCompleted,
+        commission_rate: commissionRate
+      }
+    });
+  } catch (err) {
+    console.error('getSellerEarnings:', err);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+/* ────────────────────────────────────────────────────────────
    GET /api/orders/my-orders   — Commandes de l'acheteur
    ──────────────────────────────────────────────────────────── */
 exports.getMyOrders = async (req, res) => {
   try {
     const [orders] = await db.query(
-      `SELECT o.*, COUNT(oi.id) AS items_count
-       FROM orders o
-       LEFT JOIN order_items oi ON o.id = oi.order_id
+      `SELECT o.* FROM orders o
        WHERE o.buyer_id = ?
-       GROUP BY o.id ORDER BY o.created_at DESC`,
+       ORDER BY o.created_at DESC`,
       [req.user.id]
     );
+
+    // Charger les articles pour chaque commande
+    for (const order of orders) {
+      const [items] = await db.query(
+        `SELECT oi.*, v.store_name
+         FROM order_items oi
+         LEFT JOIN vendors v ON oi.vendor_id = v.id
+         WHERE oi.order_id = ?`,
+        [order.id]
+      );
+      order.items = items;
+    }
+
     return res.json({ success: true, orders });
   } catch (err) {
     return res.status(500).json({ success: false, message: err.message });
@@ -211,6 +281,36 @@ exports.updateOrderStatus = async (req, res) => {
 
     return res.json({ success: true, message: `Statut mis à jour : ${status}` });
   } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+/* ────────────────────────────────────────────────────────────
+   GET /api/orders/store-customers   — Acheteurs de la boutique
+   ──────────────────────────────────────────────────────────── */
+exports.getStoreCustomers = async (req, res) => {
+  try {
+    const [[vendor]] = await db.query('SELECT id FROM vendors WHERE user_id = ?', [req.user.id]);
+    if (!vendor) return res.json({ success: true, customers: [] });
+
+    // Récupérer les acheteurs distincts qui ont passé au moins une commande chez ce vendeur
+    const [customers] = await db.query(
+      `SELECT DISTINCT u.id, u.name, u.email, u.phone, u.city,
+              COUNT(DISTINCT o.id) AS total_orders,
+              SUM(oi.total_price) AS total_spent,
+              MAX(o.created_at) AS last_order_date
+       FROM users u
+       INNER JOIN orders o ON u.id = o.buyer_id
+       INNER JOIN order_items oi ON o.id = oi.order_id
+       WHERE oi.vendor_id = ?
+       GROUP BY u.id
+       ORDER BY last_order_date DESC`,
+      [vendor.id]
+    );
+
+    return res.json({ success: true, customers });
+  } catch (err) {
+    console.error('getStoreCustomers:', err);
     return res.status(500).json({ success: false, message: err.message });
   }
 };
